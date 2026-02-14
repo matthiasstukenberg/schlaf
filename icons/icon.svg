@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Hintergrund: App-Farbe -->
+  <rect width="512" height="512" rx="112" fill="#0b0c10"/>
+
+  <!-- Schallwellen: zentriert, goldener Akzent -->
+  <!-- Mittlerer Balken (groß) -->
+  <rect x="236" y="156" width="40" height="200" rx="20" fill="#c9a96e"/>
+
+  <!-- Zweiter Balken links -->
+  <rect x="176" y="196" width="32" height="120" rx="16" fill="#c9a96e" opacity="0.75"/>
+
+  <!-- Zweiter Balken rechts -->
+  <rect x="304" y="196" width="32" height="120" rx="16" fill="#c9a96e" opacity="0.75"/>
+
+  <!-- Dritter Balken links (außen) -->
+  <rect x="120" y="226" width="24" height="60" rx="12" fill="#c9a96e" opacity="0.4"/>
+
+  <!-- Dritter Balken rechts (außen) -->
+  <rect x="368" y="226" width="24" height="60" rx="12" fill="#c9a96e" opacity="0.4"/>
+</svg>

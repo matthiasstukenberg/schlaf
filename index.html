@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Schlaf · Noise Generator</title>
+
+  <!-- ── PWA: Manifest & Theme ──────────────────────────
+       Das Manifest teilt dem Browser mit: Name, Icon,
+       Hintergrundfarbe – alles was für den Homescreen
+       und den App-Splashscreen gebraucht wird.
+  ──────────────────────────────────────────────────── -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#0b0c10" />
+
+  <!-- PWA für iOS (Apple braucht eigene Meta-Tags) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Schlaf" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+
+  <!-- Google Fonts: Cormorant Garamond (elegant Display) + DM Sans (lesbar) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* ─────────────────────────────────────────────
+       CSS-Variablen: Das gesamte Farbschema
+       Hier kannst du einfach Farben ändern!
+    ───────────────────────────────────────────── */
+    :root {
+      --bg:         #0b0c10;       /* Fast-Schwarz Hintergrund */
+      --surface:    #13151c;       /* Karten-Hintergrund */
+      --border:     #1e2130;       /* Subtile Trennlinien */
+      --accent:     #c9a96e;       /* Warmes Gold */
+      --accent-dim: #8a6e42;       /* Gedimmtes Gold */
+      --text:       #e8e4dc;       /* Warmes Weiß */
+      --text-muted: #5a5f72;       /* Grau für Nebentexte */
+      --active-bg:  #161925;       /* Aktive Karte Hintergrund */
+    }
+
+    /* ─────────────────────────────────────────────
+       Reset & Grundlayout
+    ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+
+      /* Dezentes Raster-Muster im Hintergrund */
+      background-image: radial-gradient(
+        circle at 50% 0%,
+        #1a1e2e 0%,
+        transparent 60%
+      );
+    }
+
+    /* ─────────────────────────────────────────────
+       Header / Titel
+    ───────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+
+    header h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      letter-spacing: 0.12em;
+      color: var(--text);
+    }
+
+    header p {
+      margin-top: 0.5rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* Goldene Linie unter dem Titel */
+    header::after {
+      content: '';
+      display: block;
+      width: 2rem;
+      height: 1px;
+      background: var(--accent);
+      margin: 1.5rem auto 0;
+      opacity: 0.6;
+    }
+
+    /* ─────────────────────────────────────────────
+       Haupt-Container
+    ───────────────────────────────────────────── */
+    main {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    /* ─────────────────────────────────────────────
+       Noise-Karten
+       Jede Karte repräsentiert einen Noise-Typ.
+    ───────────────────────────────────────────── */
+    .noise-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.6rem 2rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto;
+      gap: 0.4rem 1.5rem;
+      align-items: center;
+      cursor: pointer;
+      transition: border-color 0.3s ease, background 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Hover-Effekt */
+    .noise-card:hover {
+      border-color: var(--accent-dim);
+    }
+
+    /* Aktive Karte (der gerade spielende Noise-Typ) */
+    .noise-card.active {
+      background: var(--active-bg);
+      border-color: var(--accent);
+    }
+
+    /* Dezenter goldener Schimmer links bei aktiver Karte */
+    .noise-card.active::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 2px;
+      background: var(--accent);
+    }
+
+    /* Karten-Titel (z.B. "White Noise") */
+    .card-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.4rem;
+      font-weight: 300;
+      letter-spacing: 0.06em;
+      color: var(--text);
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    /* Kurze Beschreibung unter dem Titel */
+    .card-desc {
+      font-size: 0.72rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    /* Play/Pause-Button rechts */
+    .play-btn {
+      grid-column: 2;
+      grid-row: 1 / 3;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.2s, color 0.2s;
+      flex-shrink: 0;
+    }
+
+    .noise-card.active .play-btn {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .play-btn svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+    }
+
+    /* ─────────────────────────────────────────────
+       Volume-Slider (erscheint nur bei aktiver Karte)
+    ───────────────────────────────────────────── */
+    .volume-row {
+      grid-column: 1 / 3;
+      grid-row: 3;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 0.8rem;
+
+      /* Sanft einblenden */
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 0.4s ease, opacity 0.4s ease, margin-top 0.4s ease;
+    }
+
+    .noise-card.active .volume-row {
+      max-height: 40px;
+      opacity: 1;
+    }
+
+    .volume-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      white-space: nowrap;
+      min-width: 3rem;
+    }
+
+    /* Custom Slider-Styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 1px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.3);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+    }
+
+    /* ─────────────────────────────────────────────
+       Sleep Timer
+    ───────────────────────────────────────────── */
+    .timer-section {
+      margin-top: 2rem;
+      border-top: 1px solid var(--border);
+      padding-top: 1.8rem;
+    }
+
+    .timer-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    /* Die Timer-Optionen als Buttons in einer Reihe */
+    .timer-options {
+      display: flex;
+      gap: 0.6rem;
+      justify-content: center;
+    }
+
+    .timer-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--text-muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .timer-btn:hover {
+      border-color: var(--accent-dim);
+      color: var(--text);
+    }
+
+    .timer-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Timer-Countdown Anzeige */
+    .timer-display {
+      text-align: center;
+      margin-top: 1.2rem;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.8rem;
+      font-weight: 300;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+      min-height: 2.5rem;
+      transition: opacity 0.3s;
+    }
+
+    .timer-display.hidden {
+      opacity: 0;
+    }
+
+    /* ─────────────────────────────────────────────
+       Footer
+    ───────────────────────────────────────────── */
+    footer {
+      margin-top: 3rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      opacity: 0.4;
+    }
+
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Schlaf</h1>
+    <p>Noise Generator</p>
+  </header>
+
+  <main>
+
+    <!-- ── Noise-Karten ────────────────────────────
+         Jede Karte hat ein data-type Attribut.
+         Dieses wird von JavaScript ausgelesen.
+    ─────────────────────────────────────────────── -->
+
+    <div class="noise-card" data-type="white">
+      <span class="card-title">White Noise</span>
+      <span class="card-desc">Alle Frequenzen · Gleichmäßig</span>
+      <button class="play-btn" aria-label="Play White Noise">
+        <!-- Play-Icon (SVG) -->
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <div class="volume-row">
+        <span class="volume-label">Lautstärke</span>
+        <input type="range" min="0" max="1" step="0.01" value="0.3" class="volume-slider" />
+      </div>
+    </div>
+
+    <div class="noise-card" data-type="pink">
+      <span class="card-title">Pink Noise</span>
+      <span class="card-desc">Weiche Höhen · Natürlich</span>
+      <button class="play-btn" aria-label="Play Pink Noise">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <div class="volume-row">
+        <span class="volume-label">Lautstärke</span>
+        <input type="range" min="0" max="1" step="0.01" value="0.3" class="volume-slider" />
+      </div>
+    </div>
+
+    <div class="noise-card" data-type="brown">
+      <span class="card-title">Brown Noise</span>
+      <span class="card-desc">Tiefe Frequenzen · Beruhigend</span>
+      <button class="play-btn" aria-label="Play Brown Noise">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <div class="volume-row">
+        <span class="volume-label">Lautstärke</span>
+        <input type="range" min="0" max="1" step="0.01" value="0.3" class="volume-slider" />
+      </div>
+    </div>
+
+    <!-- ── Sleep Timer ──────────────────────────── -->
+    <div class="timer-section">
+      <p class="timer-label">Sleep Timer</p>
+      <div class="timer-options">
+        <button class="timer-btn" data-minutes="15">15 min</button>
+        <button class="timer-btn" data-minutes="30">30 min</button>
+        <button class="timer-btn" data-minutes="60">60 min</button>
+        <button class="timer-btn" data-minutes="90">90 min</button>
+      </div>
+      <div class="timer-display hidden" id="timerDisplay">—</div>
+    </div>
+
+  </main>
+
+  <footer>Generiert im Browser · Kein Server</footer>
+
+  <script>
+    // ═══════════════════════════════════════════════════════
+    //  WEB AUDIO API – Erklärung für Anfänger
+    //
+    //  Der Browser hat eine eingebaute "Tontechnik"-Abteilung:
+    //  die Web Audio API. Sie arbeitet mit einem AudioContext,
+    //  das ist quasi dein digitales Mischpult.
+    //
+    //  Klangerzeugung funktioniert so:
+    //  1. Du erzeugst einen "Buffer" (eine Tabelle voller Zahlen)
+    //  2. Jede Zahl ist ein Schallwellen-Datenpunkt (-1 bis +1)
+    //  3. Du verbindest den Buffer mit den Lautsprechern
+    //  4. Fertig – der Browser spielt den Sound ab
+    // ═══════════════════════════════════════════════════════
+
+    // ── Globale Zustands-Variablen ──────────────────────────
+    let audioCtx = null;          // Das Mischpult (wird erst beim ersten Klick erstellt)
+    let currentSource = null;     // Die aktuell spielende Noise-Quelle
+    let gainNode = null;          // Lautstärke-Regler
+    let currentType = null;       // Welcher Noise-Typ gerade spielt ('white', 'pink', 'brown')
+    let timerInterval = null;     // Für den Countdown
+    let timerEndTime = null;      // Wann endet der Timer?
+    let activeTimerMinutes = null;// Welcher Timer ist aktiv?
+
+    // ── Noise-Generatoren ───────────────────────────────────
+    // Jede Funktion gibt einen AudioBuffer zurück –
+    // eine Tabelle mit Zahlen, die einen bestimmten Sound erzeugen.
+
+    function createWhiteNoise(ctx) {
+      // White Noise = vollständig zufällige Zahlen
+      // Das klingt wie Rauschen auf einem alten Radio
+      const bufferSize = ctx.sampleRate * 3; // 3 Sekunden Buffer
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0); // Zugriff auf Kanal 0
+
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1; // Zufallszahl zwischen -1 und +1
+      }
+      return buffer;
+    }
+
+    function createPinkNoise(ctx) {
+      // Pink Noise = White Noise, aber hohe Frequenzen werden abgeschwächt
+      // Klingt natürlicher – ähnlich wie Regen oder Wasserfall
+      // (Paul Kellet's Algorithmus – ein bewährter Standard)
+      const bufferSize = ctx.sampleRate * 3;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+
+        // Diese Koeffizienten formen das Frequenzspektrum
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        b3 = 0.86650 * b3 + white * 0.3104856;
+        b4 = 0.55000 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.0168980;
+
+        data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+        b6 = white * 0.115926;
+      }
+      return buffer;
+    }
+
+    function createBrownNoise(ctx) {
+      // Brown Noise = -6 dB pro Oktave (wissenschaftliche Definition)
+      // Klingt wie starker Regen, dumpfes Rauschen, Meeresrauschen
+      // Technisch: Integration von White Noise (Tiefpass erster Ordnung)
+      const bufferSize = ctx.sampleRate * 3;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      let lastOut = 0;
+      let max = 0;
+
+      // Erster Durchgang: Signal erzeugen
+      const temp = new Float32Array(bufferSize);
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        temp[i] = (lastOut + (0.02 * white)) / 1.02;
+        lastOut = temp[i];
+        if (Math.abs(temp[i]) > max) max = Math.abs(temp[i]);
+      }
+
+      // Zweiter Durchgang: Normalisieren auf max ±0.8 (verhindert Clipping)
+      // Gleiche wahrgenommene Lautstärke wie Pink und White Noise
+      const scale = 0.8 / max;
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = temp[i] * scale;
+      }
+
+      return buffer;
+    }
+
+    // ── Sound stoppen ────────────────────────────────────────
+    function stopSound(fadeOut = false) {
+      if (!currentSource) return;
+
+      if (fadeOut && gainNode && audioCtx) {
+        // Sanftes Ausblenden über 2 Sekunden (für den Timer)
+        gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2);
+        setTimeout(() => {
+          try { currentSource.stop(); } catch(e) {}
+          currentSource = null;
+        }, 2100);
+      } else {
+        try { currentSource.stop(); } catch(e) {}
+        currentSource = null;
+      }
+    }
+
+    // ── Sound starten ────────────────────────────────────────
+    function startSound(type, volume) {
+      // AudioContext wird beim ersten Klick erstellt
+      // (Browser erlaubt Audio erst nach einer Nutzer-Interaktion)
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      // Falls ein anderer Sound läuft: stoppen
+      stopSound();
+
+      // Den richtigen Buffer erzeugen
+      let buffer;
+      if (type === 'white') buffer = createWhiteNoise(audioCtx);
+      if (type === 'pink')  buffer = createPinkNoise(audioCtx);
+      if (type === 'brown') buffer = createBrownNoise(audioCtx);
+
+      // Lautstärke-Knoten (GainNode = digitaler Lautstärkeregler)
+      gainNode = audioCtx.createGain();
+
+      // ✅ SICHERHEIT: Immer bei 0 starten, dann sanft einblenden (Fade-In)
+      // Das verhindert den "Schrecksekunden"-Effekt beim Starten
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + 1.5);
+
+      // Buffer-Quelle erstellen und in Dauerschleife setzen
+      currentSource = audioCtx.createBufferSource();
+      currentSource.buffer = buffer;
+      currentSource.loop = true; // → Der Sound wiederholt sich nahtlos
+
+      // Verbindung: Quelle → Lautstärke → Lautsprecher
+      currentSource.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      currentSource.start(0);
+      currentType = type;
+    }
+
+    // ── Karten-Interaktion ───────────────────────────────────
+    const cards = document.querySelectorAll('.noise-card');
+
+    cards.forEach(card => {
+      const type = card.dataset.type;          // 'white', 'pink' oder 'brown'
+      const btn = card.querySelector('.play-btn');
+      const slider = card.querySelector('.volume-slider');
+      const icon = btn.querySelector('svg path');
+
+      // Pause-Icon (zwei Balken)
+      const pauseIconPath = 'M6 19h4V5H6v14zm8-14v14h4V5h-4z';
+      // Play-Icon (Dreieck)
+      const playIconPath  = 'M8 5v14l11-7z';
+
+      // Klick auf die Karte oder den Button
+      card.addEventListener('click', (e) => {
+        // Slider-Klicks sollen die Karte nicht umschalten
+        if (e.target === slider) return;
+
+        if (currentType === type) {
+          // Aktueller Sound → stoppen
+          stopSound();
+          card.classList.remove('active');
+          icon.setAttribute('d', playIconPath);
+          currentType = null;
+        } else {
+          // Alle anderen Karten deaktivieren
+          cards.forEach(c => {
+            c.classList.remove('active');
+            c.querySelector('svg path').setAttribute('d', playIconPath);
+          });
+
+          // Diesen Sound starten
+          startSound(type, parseFloat(slider.value));
+          card.classList.add('active');
+          icon.setAttribute('d', pauseIconPath);
+        }
+      });
+
+      // Lautstärke-Slider
+      slider.addEventListener('input', () => {
+        if (currentType === type && gainNode) {
+          gainNode.gain.value = parseFloat(slider.value);
+        }
+      });
+    });
+
+    // ── Sleep Timer ──────────────────────────────────────────
+    const timerBtns = document.querySelectorAll('.timer-btn');
+    const timerDisplay = document.getElementById('timerDisplay');
+
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function clearTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+      timerEndTime = null;
+      activeTimerMinutes = null;
+      timerDisplay.textContent = '—';
+      timerDisplay.classList.add('hidden');
+      timerBtns.forEach(b => b.classList.remove('active'));
+    }
+
+    timerBtns.forEach(btn => {
+      const minutes = parseInt(btn.dataset.minutes);
+
+      btn.addEventListener('click', () => {
+        // Gleichen Timer nochmal klicken → abbrechen
+        if (activeTimerMinutes === minutes) {
+          clearTimer();
+          return;
+        }
+
+        // Alten Timer stoppen
+        clearTimer();
+
+        // Neuen Timer starten
+        activeTimerMinutes = minutes;
+        timerEndTime = Date.now() + minutes * 60 * 1000;
+        btn.classList.add('active');
+        timerDisplay.classList.remove('hidden');
+
+        timerInterval = setInterval(() => {
+          const remaining = Math.round((timerEndTime - Date.now()) / 1000);
+
+          if (remaining <= 0) {
+            // Zeit abgelaufen → Sound sanft ausblenden
+            clearTimer();
+            stopSound(true); // true = mit Fade-Out
+
+            // Alle Karten deaktivieren
+            cards.forEach(c => {
+              c.classList.remove('active');
+              c.querySelector('svg path').setAttribute('d', 'M8 5v14l11-7z');
+            });
+            currentType = null;
+          } else {
+            timerDisplay.textContent = formatTime(remaining);
+          }
+        }, 1000);
+      });
+    });
+
+  </script>
+
+  <script>
+    // ── Service Worker registrieren ──────────────────────
+    // Dieser Code läuft einmalig beim ersten Seitenaufruf.
+    // Er meldet den Service Worker beim Browser an,
+    // der sich dann um Caching und Offline-Support kümmert.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(() => console.log('Service Worker aktiv – App ist offline-fähig ✓'))
+          .catch(err => console.log('Service Worker Fehler:', err));
+      });
+    }
+  </script>
+</body>
+</html>

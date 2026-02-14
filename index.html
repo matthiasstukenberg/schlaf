@@ -5,20 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Schlaf · Noise Generator</title>
 
-  <!-- ── PWA: Manifest & Theme ──────────────────────────
-       Das Manifest teilt dem Browser mit: Name, Icon,
-       Hintergrundfarbe – alles was für den Homescreen
-       und den App-Splashscreen gebraucht wird.
-  ──────────────────────────────────────────────────── -->
-  <link rel="manifest" href="./manifest.json" />
-  <meta name="theme-color" content="#0b0c10" />
-
-  <!-- PWA für iOS (Apple braucht eigene Meta-Tags) -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Schlaf" />
-  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-
   <!-- Google Fonts: Cormorant Garamond (elegant Display) + DM Sans (lesbar) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link
@@ -372,7 +358,7 @@
       </button>
       <div class="volume-row">
         <span class="volume-label">Lautstärke</span>
-        <input type="range" min="0" max="0.3" step="0.005" value="0.15" class="volume-slider" />
+        <input type="range" min="0" max="1" step="0.01" value="0.4" class="volume-slider" />
       </div>
     </div>
 
@@ -384,7 +370,7 @@
       </button>
       <div class="volume-row">
         <span class="volume-label">Lautstärke</span>
-        <input type="range" min="0" max="0.3" step="0.005" value="0.15" class="volume-slider" />
+        <input type="range" min="0" max="1" step="0.01" value="0.4" class="volume-slider" />
       </div>
     </div>
 
@@ -396,7 +382,7 @@
       </button>
       <div class="volume-row">
         <span class="volume-label">Lautstärke</span>
-        <input type="range" min="0" max="0.3" step="0.005" value="0.15" class="volume-slider" />
+        <input type="range" min="0" max="1" step="0.01" value="0.4" class="volume-slider" />
       </div>
     </div>
 
@@ -569,7 +555,27 @@
       currentType = type;
     }
 
-    // ── Karten-Interaktion ───────────────────────────────────
+    // ── Logarithmische Lautstärke-Umrechnung ────────────────
+    // Unser Gehör funktioniert logarithmisch, nicht linear.
+    // Ein Gain von 0.5 klingt NICHT halb so laut wie 1.0 –
+    // es klingt nur etwas leiser. Deshalb rechnen wir den
+    // Slider-Wert (0–1) in einen echten Gain-Wert um,
+    // der unserer Wahrnehmung entspricht.
+    //
+    // Zusätzlich: wir deckeln den maximalen Gain auf 0.07
+    // (statt 1.0), damit selbst "volle Lautstärke" im
+    // Slider noch angenehm leise bleibt.
+    const MAX_GAIN = 0.07; // Maximale Lautstärke der App
+
+    function sliderToGain(sliderValue) {
+      // sliderValue kommt als 0.0 – 1.0 rein
+      // Wir wenden eine Exponentialfunktion an:
+      // gain = MAX_GAIN * (e^x - 1) / (e - 1)
+      // Das gibt uns eine Kurve die unten fein dosierbar
+      // und oben nie erschreckend laut wird.
+      const v = parseFloat(sliderValue);
+      return MAX_GAIN * (Math.exp(v) - 1) / (Math.E - 1);
+    }
     const cards = document.querySelectorAll('.noise-card');
 
     cards.forEach(card => {
@@ -602,7 +608,7 @@
           });
 
           // Diesen Sound starten
-          startSound(type, parseFloat(slider.value));
+          startSound(type, sliderToGain(slider.value));
           card.classList.add('active');
           icon.setAttribute('d', pauseIconPath);
         }
@@ -611,7 +617,7 @@
       // Lautstärke-Slider
       slider.addEventListener('input', () => {
         if (currentType === type && gainNode) {
-          gainNode.gain.value = parseFloat(slider.value);
+          gainNode.gain.value = sliderToGain(slider.value);
         }
       });
     });
@@ -678,20 +684,6 @@
       });
     });
 
-  </script>
-
-  <script>
-    // ── Service Worker registrieren ──────────────────────
-    // Dieser Code läuft einmalig beim ersten Seitenaufruf.
-    // Er meldet den Service Worker beim Browser an,
-    // der sich dann um Caching und Offline-Support kümmert.
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(() => console.log('Service Worker aktiv – App ist offline-fähig ✓'))
-          .catch(err => console.log('Service Worker Fehler:', err));
-      });
-    }
   </script>
 </body>
 </html>
